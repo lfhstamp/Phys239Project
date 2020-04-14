@@ -1,0 +1,199 @@
+import numpy as np
+import scipy.integrate
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+class Project(object):
+    
+    """
+    This is a class for decidng what form of derivation equation is to be used.
+    """
+    
+    def __init__(self, p, dt1, tmax, r0, v0):
+        """
+        Create a day of the year
+
+        Parameters:
+        -----------
+        p = number of protons
+        dt1 = time step
+        v0 = inital velociy's
+        r0 = initial positions
+        m1 = initial mass's
+        tmax = final time
+        """
+        
+        self.p = p
+        self.dt1 = dt1
+        self.v0 = v0
+        self.r0 = r0
+        self.mp = 1.67*10**-27
+        self.tmax = tmax
+        
+    def __str__(self):
+        _outstr = " euler: " + str(self.euler())
+        _outstr += " rk4: " + str(self.RK4())
+        return  _outstr 
+    
+
+
+    
+    def RK4(self):
+        """
+        creates a derivative with the euler method
+        
+        Args:
+            __int__ Parameters
+        
+        Returns:
+            New positions per time
+        """
+        # same as previous
+        dt = self.dt1 
+        t0=0. 
+        
+        #dt = np.zeros(self.p*(self.p-1))
+        r = np.array(self.r0)
+        v = np.array(self.v0)
+        q = np.array([r,v])
+        save = np.array([r])
+        tpoints = np.arange(t0,self.tmax,dt)
+        time =[0.]
+        Save=[]
+
+        
+        def af(r):
+            k = 9*(10**9)
+            Q1 = 1.6*10**-19
+            Q2 = 1.6*10**-19
+            a = np.zeros(self.p*2)
+            
+            for i in range(0,(2*self.p)-1,2):
+
+                for j in range(0,(2*self.p)-1,2): 
+
+                    if i!=j:
+                        y= r[j+1] - r[i+1]
+                        x=r[j] - r[i]
+                        d = (x*x + y*y)**0.5
+                        if d < 0.3:
+                            a[i] += 0
+                            a[i+1] += 0
+                        else:
+                            a[i] +=-(k/self.mp)*Q1*Q1*x/d/d/d
+                            a[i+1] +=-(k/self.mp)*Q2*Q2*y/d/d/d
+                            #dt[i] = d 
+                       
+        
+            return (np.array(a))
+        
+            
+
+        
+        def f(q, t):
+            """
+            creates an array of velocity and acceleration
+
+            Args:
+               position (r) and velocity(v)
+
+            Returns:
+                velocity (v) and acceleration (a)
+            """
+             
+            
+            return (np.array([q[1,:], af(q[0,:]) ]))
+        
+        def box(q):
+            
+            for i in range(0,2*self.p,1):
+
+                if q[0,i] <= -1 : q[1,i] =-q[1,i]
+                if q[0,i] >= 1 : q[1,i] =-q[1,i]
+                        
+            return (q)
+        
+        
+        
+        def distance_check(r):
+            fuzed = np.array([[0,0]])
+            dd = []
+            k=0
+            for i in range(0,(2*self.p)-1,2):
+
+                for j in range(i,(2*self.p)-1,2): 
+
+                    if i!=j:
+                        y= r[j+1] - r[i+1]
+                        x=r[j] - r[i]
+                        d = (x*x + y*y)**0.5
+                        dd.append(d)
+                        if d < 0.3 and d > 0.1: 
+                                fuzed = np.concatenate((fuzed, np.array([[i,j]])),axis=0)
+                            
+            return (fuzed,dd)
+        
+        def fussion (q):
+            fuze,dd = distance_check(q[0])
+            h = np.size(fuze)
+            if np.size(fuze) > 2:
+                g='yes'
+                for k in range(0,len(fuze[:,0]-1),1):
+                    i = fuze[k,0]
+                    j = fuze[k,1]
+                    
+
+                    newxV = q[1,i]+q[1,j]  #((self.mp*q[1,i]) + (self.mp*q[1,j]))/(2*self.mp)
+                    newyV = q[1,i+1]+q[1,j+1]#((self.mp*q[1,i+1]) + (self.mp*q[1,j+1]))/(2*self.mp)
+                    q[1,i] = newxV
+                    q[1,i+1] = newyV
+                    q[1,j] = newxV
+                    q[1,j+1] = newyV
+                    q[0,i] = q[0,j]
+                    q[0,i+1] = q[0,j+1]
+                    #np.delete(q, [j,j+1], axis=1)
+           
+            else:
+                g = "no" 
+                q = q
+
+            return(np.array(q),g,g)
+        k=0
+        dd = []
+        pp=[]
+        for t in tpoints:
+            k+=1
+            
+            q = box(q)
+            
+            save = np.concatenate((save, [q[0]]),axis=0)
+            time.append(t)
+            k1 = dt*f(q, t)  #Splits the time step into 4 and looks at the derivative at each point
+            k2 = dt*f(q + 0.5*k1, t+0.5*dt)
+            k3 = dt*f(q + 0.5*k2, t+0.5*dt)
+            k4 = dt*f(q + k3, t+dt)
+            q += (k1+2*k2+2*k3+k4)/6.0
+            q,g,d = fussion(q)
+            pp.append(k1[0])
+            dd.append(d)
+
+
+        
+            
+            
+   
+
+        return (np.array(time),save,pp,dd)
+        
+(t,save,p,d) = Project(3,.2,20,[-0.9,-0.9,0.9,0.9,0.9,-0.9],[1,0,1,0,1,0]).RK4();    
+(x1,y1,x2,y2,x3,y3)=(save[:,0],save[:,1],save[:,2],save[:,3],save[:,4],save[:,5])
+plt.plot(x1,y1,'r-')
+plt.plot(x2,y2,'b-')
+plt.plot(x3,y3,'g-')
+#plt.plot(t,x1,'r.')
+#plt.plot(t,x2,'b.')
+#print(d)
+#print(d)
+#print(p)
+
+plt.tight_layout()
