@@ -1,0 +1,270 @@
+import numpy as np
+import scipy.integrate
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+class Project(object):
+    
+    """
+    This is a class for decidng what form of derivation equation is to be used.
+    """
+    
+    def __init__(self, fuz, p, dt1, tmax, size, vv, dev, T):
+        """
+        Create a day of the year
+
+        Parameters:
+        -----------
+        p = number of protons
+        dt1 = time step
+        v0 = inital velociy's
+        r0 = initial positions
+        m1 = initial mass's
+        tmax = final time
+        """
+        r0 = np.empty(2*p)
+        for i in range(0,(2*p)-1,2):
+            for j in range(0,2,1):
+
+                r0[j+i] = -size/2 + (size/p)/4 + (i/2)*size/p
+        
+        v0 = np.empty(2*p)
+        for j in range(0,(2*p)-1,2): 
+            
+            v0[i] = np.random.uniform(-vv-dev, vv+dev)
+            v0[i+1] = np.random.uniform(-vv-dev, vv+dev)
+            
+            
+        
+        self.p = p
+        self.dt1 = dt1
+        self.v0 = v0
+        self.r0 = r0
+        self.mp = 1.67*10**-27
+        self.tmax = tmax
+        self.fuz = fuz
+        self.size = size
+        self.k = 0
+        self.kb = 1.381*10**-23             #boltzmann constant
+        self.T = T                          #Temperature in Kelvin      
+    def __str__(self):
+        _outstr = " euler: " + str(self.euler())
+        _outstr += " rk4: " + str(self.RK4())
+        return  _outstr 
+    
+
+
+    
+    def RK4(self):
+        """
+        creates a derivative with the euler method
+        
+        Args:
+            __int__ Parameters
+        
+        Returns:
+            New positions per time
+        """
+        # same as previous
+        dt = self.dt1 
+        t0=0. 
+        s = 0.                               #Friction term
+        #dt = np.zeros(self.p*(self.p-1))
+        r = np.array(self.r0)
+        v = np.array(self.v0)
+        q = np.array([r,v])
+        save = np.array([r])
+        tpoints = np.arange(t0,self.tmax,dt)
+        time =[0.]
+        Save=[]
+
+        def dsdt(q):
+            totalKE=0.
+            M=self.mp*1400000
+            d=2
+            for i in np.arange(0,2*self.p-1,2):
+                v2= q[1,i]**2 + q[1,i+1]**2
+                p2overm= self.mp*v2
+                totalKE += p2overm
+            return ((1./M)*(totalKE-d*self.p*self.kb*self.T))
+        
+        def tempcalc(q):
+            totalKE=0.
+            for i in np.arange(0,2*self.p-1,2):
+                v2= q[1,i]**2 + q[1,i+1]**2
+                p2overm= self.mp*v2
+                totalKE += p2overm
+            return (totalKE/self.p)/self.kb
+            
+
+        
+        def af(q, s):
+            
+            k = 9*(10**9)
+            Q1 = 1.6*10**-19
+            Q2 = 1.6*10**-19
+            a = np.zeros(self.p*2)
+            r = q[0,:]
+            
+            
+            for i in range(0,(2*self.p)-1,2):
+
+                for j in range(0,(2*self.p)-1,2): 
+
+                    if i!=j:
+                        y= r[j+1] - r[i+1]
+                        x=r[j] - r[i]
+                        d = (x*x + y*y)**0.5
+                        
+                        if d < self.fuz:
+                            a[i] += 0
+                            a[i+1] += 0
+                        else:
+                            a[i] +=-((k/self.mp)*Q1*Q1*x/d/d/d)-(s*q[1,i])
+                            a[i+1] +=-((k/self.mp)*Q2*Q2*y/d/d/d)-(s*q[1,i+1])
+                            #dt[i] = d 
+                       
+        
+            return (np.array(a))
+        
+            
+
+        
+        def f(q, t, s):
+            """
+            creates an array of velocity and acceleration
+
+            Args:
+               position (r) and velocity(v)
+
+            Returns:
+                velocity (v) and acceleration (a)
+            """
+             
+            
+            return (np.array([q[1,:], af(q, s)]))
+        
+        def box(q):
+            
+            for i in range(0,2*self.p,1):
+
+                if q[0,i] <= -self.size/2 : q[1,i] =-q[1,i]
+                if q[0,i] >= self.size/2 : q[1,i] =-q[1,i]
+                        
+            return (q)
+        
+        
+        
+        def distance_check(r):
+            fuzed = np.array([[0,0]])
+            dd = []
+            k=0
+            for i in range(0,(2*self.p)-1,2):
+
+                for j in range(i,(2*self.p)-1,2): 
+
+                    if i!=j:
+                        y= r[j+1] - r[i+1]
+                        x=r[j] - r[i]
+                        d = (x*x + y*y)**0.5
+                        dd.append(d)
+                        if d < self.fuz and d > self.fuz-.2: 
+                                fuzed = np.concatenate((fuzed, np.array([[i,j]])),axis=0)
+                            
+            return (fuzed,dd)
+        
+        def fussion (q):
+            
+            fuze,dd = distance_check(q[0])
+            h = np.size(fuze)
+            
+            if np.size(fuze) > 2:
+                g=[0,0]
+                i = np.empty(len(fuze[:,0]))
+                j = np.empty(len(fuze[:,0]))
+                i1 = np.zeros((len(fuze[:,0]),2))
+                j1 = np.zeros((len(fuze[:,0]),2))
+                i2 = np.zeros((len(fuze[:,0]),2))
+                j2 = np.zeros((len(fuze[:,0]),2))
+                #g.append(['yes'])
+                g = 'yes'
+                self.k += 1
+                for k in range(1,len(fuze[:,0]-1),1):
+
+                    i = fuze[k,0]
+                    j = fuze[k,1]
+                    i1[k] = [q[0,i],q[1,i]]
+                    i2[k] = [q[0,i+1],q[1,i+1]]
+                    j1[k] = [q[0,j],q[1,j]]
+                    j2[k] = [q[0,j+1],q[1,j+1]]
+                    
+                for k in range(1,len(fuze[:,0]-1),1):
+                    
+                    i = fuze[k,0]
+                    j = fuze[k,1]
+                    newxV = i1[k,1]+j1[k,1]  #((self.mp*q[1,i]) + (self.mp*q[1,j]))/(2*self.mp)
+                    newyV = i2[k,1]+j2[k,1]  #((self.mp*q[1,i+1]) + (self.mp*q[1,j+1]))/(2*self.mp)
+                    
+                    q[1,i] = newxV
+                    q[1,i+1] = newyV
+                    q[1,j] = newxV
+                    q[1,j+1] = newyV
+                    q[0,i] = (j1[k,0]+i1[k,0])/2
+                    q[0,i+1] = (j2[k,0]+i2[k,0])/2
+                    q[0,j] = (j1[k,0]+i1[k,0])/2
+                    q[0,j+1] = (j2[k,0]+i2[k,0])/2
+                    #np.delete(q, [j,j+1], axis=1)
+           
+            else:
+                g = "no" 
+                q = q
+
+            return(np.array(q),g,g)
+        k=0
+        dd = []
+        pp=[]
+        
+        for t in tpoints:
+            k+=1
+            
+            q = box(q)
+            s+=dsdt(q)*dt
+            rs=dsdt(q)
+            temp=tempcalc(q)
+            save = np.concatenate((save, [q[0]]),axis=0)
+            time.append(t)
+            k1 = dt*f(q, t, s)  #Splits the time step into 4 and looks at the derivative at each point
+            k2 = dt*f(q + 0.5*k1, t+0.5*dt, s)
+            k3 = dt*f(q + 0.5*k2, t+0.5*dt, s)
+            k4 = dt*f(q + k3, t+dt, s)
+            q += (k1+2*k2+2*k3+k4)/6.0
+            q,g,d = fussion(q)
+            pp.append(self.r0)
+            dd.append(d)
+            
+
+        
+            
+            
+   
+
+        return (np.array(time),save,pp,self.k)
+fuz = 0.5 #critical lenght that causes fussion
+pp = 2   # number of particles
+dt1 = .01 # time step
+tmax = 20.  #max time
+size = 500   #dimentions of box
+vv = 1    #inital velocity
+dev = 0.5  #deviation in the intial velocity
+T=1000.
+
+        
+(t,save,p,d) = Project(fuz, pp, dt1, tmax, size, vv, dev,T).RK4();
+
+print("there have been", d, "fussions")
+print()
+
+for i in range(0,(2*pp)-1,2):
+    plt.plot(save[:,i],save[:,i+1])
+
+plt.tight_layout()
