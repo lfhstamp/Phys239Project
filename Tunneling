@@ -42,8 +42,8 @@ class Project(object):
             v0[i] = np.random.uniform(-vv-dev, vv+dev)
             v0[i+1] = np.random.uniform(-vv-dev, vv+dev)
             
-            
-        self.scale = scale
+        self.scale1 = scale    
+        self.scale = (10**-15)*self.scale1
         self.p = p
         self.dt1 = dt1
         self.vv = vv
@@ -364,7 +364,7 @@ class Project(object):
                 q, Q
             """
             
-            fuze,dd = distance_check(q)
+            fuze = distance_check(q)
             h = np.size(fuze)
             
             if np.size(fuze) == 4 : #fussion step 1
@@ -428,7 +428,7 @@ class Project(object):
             
             q,d,Q = fussion(q,Q)
             pp.append(d)
-            dd.append([self.vv,TunnelingProb(q),AvKE(q),(self.fuz/(self.scale*10**3))*dbwave(q)])
+            dd.append([self.vv,TunnelingProb(q),AvKE(q),(self.fuz/(self.scale*self.scale1))*dbwave(q)])
             K = [self.k,self.k1,self.k2]
             
             """
@@ -450,8 +450,10 @@ tmax = 100  #max time
 size = 100  #dimentions of box
 vv = 10**2    #inital velocity
 dev = 0.5  #deviation in the intial velocity
-T=100000 #starting temp
-scale = 10**-12 #scale change form known values
+T=.1 #starting temp
+scale = 10**3 #scale change form known values
+            # 1 for ideal model
+            # 10**3 for adapted model
 
         
 (t,save,p,d) = Project(fuz, pp, dt1, tmax, size, dev,T,scale).RK4();
