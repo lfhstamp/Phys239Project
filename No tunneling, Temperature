@@ -450,11 +450,15 @@ scale = 10**3 #scale change form known values
 
 (t,save,p,d) = Project(fuz, pp, dt1, tmax, size, dev,T,scale).RK4();
 
-print("there have been", d, "fussions")
+print("there have been", d, "step 1/2/3 fussions")
 
 
 for i in range(0,(2*pp)-1,2):
     plt.plot(save[:,i],save[:,i+1], '.')
-print(p[0])
+
+
+plt.xlabel("X - Direction (m)")
+plt.ylabel("Y - Direction (m)")
+plt.title('Movement of a Protons')
 
 plt.tight_layout()
